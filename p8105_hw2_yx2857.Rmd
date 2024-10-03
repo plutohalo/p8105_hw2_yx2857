@@ -126,6 +126,9 @@ trash_wheels <- bind_rows(mr_trash_wheel, prof_trash_wheel, gwynnda)
 
 ```
 The trash wheel dataset, consisting data from Mr. Trash, Professor, and Gwynnda wheels, contains `r nrow(trash_wheels)` observations and `r ncol(trash_wheels)` variables. The key variables include `year`, `month`, `dumpster`, trash weight(`weight_tons`), trash volume (`volume_cubic_yards`), `plastic_bottles`, `cigarette_butts`, and `trash_wheel`. The total weight of trash collected by Professor Trash Wheel is `r trash_wheels |> filter(trash_wheel == "Professor")|>pull(weight_tons)|>sum(na.rm = T)` tons. The total number of cigarette butts collected by Gwynnda in June of 2022 is `r sum(trash_wheels |> filter(trash_wheel == "Gwynnda", month == "June", year == 2022)|> pull(cigarette_butts))`.  
+It seems like the variable `homes_powered` is stored in the excel spreadsheet as a formula, calculating the number of homes powered by the collected trash weight, which is the `weight_tons` *500/30. Although some rows of this variable was not provided (as missing), or imput with a number (like 0) rather than calculing as above, I decided to keep the original data as it is due to the lack of related information.  
+
+
 
 
 **Problem 3**
@@ -185,7 +188,10 @@ gbb_data |>
   select(series, episode, baker, result) |>
   pivot_wider(names_from = result, values_from = baker) |>
   select(series, episode, `STAR BAKER`, WINNER) |>
-  arrange(series, episode)
+  arrange(series, episode) |>
+  #replace NA with ""
+  mutate(across(everything(), ~ replace_na(., ""))) |>
+  knitr::kable()
 
 
 ```
