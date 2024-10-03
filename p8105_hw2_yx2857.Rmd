@@ -1,0 +1,206 @@
+---
+title: "p8105_hw2_yx2857"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+
+```
+
+**Problem 1**  
+```{r Q1_clean_data}
+# Read and clean the data; retain line, station, name, station latitude / longitude, routes served, entry, vending, entrance type, and ADA compliance. Convert the entry variable from character (YES vs NO) to a logical variable (the ifelse or case_match function may be useful)
+
+# Read the data
+
+subway <- read_csv(
+    file = "data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv",
+    col_types = cols(Route8 = "c", Route9 = "c", Route10 = "c", Route11 = "c")) |> 
+  janitor::clean_names() |> 
+  select(
+    line, station_name, station_latitude, station_longitude, 
+    starts_with("route"), entry, exit_only, vending, entrance_type, 
+    ada) |> 
+  mutate(entry = ifelse(entry == "YES", TRUE, FALSE))
+#Write a short paragraph about this dataset – explain briefly what variables the dataset contains, describe your data cleaning steps so far, and give the dimension (rows x columns) of the resulting dataset. Are these data tidy?
+
+
+
+```
+
+This cleaned dataset contains `r nrow(subway)` rows and `r ncol(subway)` columns. The variables include line, station name, station latitude, station longitude, routes served, entrance type, and ADA compliance. The data cleaning steps include reading the data, cleaning the column names, and checking the data structure, changing the variable class to character of variables `route8` through `route11`. The data is not tidy, majorly because the `route` variables are stored in a wide format rather than a long format. The current wide format will cause problems when we want to analyze specific routes. 
+
+```{r Q1_questions}
+# Answer the following questions using these data:
+#
+# How many distinct stations are there? Note that stations are identified both by name and by line (e.g. 125th St 8th Avenue; 125st Broadway; 125st Lenox); the distinct function may be useful here.
+subway_stations <- subway |> 
+  distinct(station_name, line)
+
+# How many stations are ADA compliant?
+ada_stations <- subway |> 
+  filter(ada == TRUE) |> 
+  distinct(station_name, line)
+# What proportion of station entrances / exits without vending allow entrance?
+prop_no_vending_entry <- subway |> 
+  filter(vending == "NO") |> 
+  pull(entry) |> 
+  mean()
+# Reformat data so that route number and route name are distinct variables. How many distinct stations serve the A train?
+subway_stations_A <- subway |> 
+  pivot_longer(
+    route1:route11,
+    names_to = "route_num",
+    values_to = "route") |> 
+  filter(route == "A") |> 
+  select(station_name, line) |> 
+  distinct()
+# Of the stations that serve the A train, how many are ADA compliant
+subway_stations_A_ada <- subway |> 
+  pivot_longer(
+    route1:route11,
+    names_to = "route_num",
+    values_to = "route") |> 
+  filter(route == "A", ada == TRUE) |> 
+  select(station_name, line) |> 
+  distinct()
+```
+There are `r nrow(subway_stations)` distinct stations in the dataset.  
+There are `r nrow(ada_stations)` ADA compliant stations in the dataset.   
+The proportion of station entrances / exits without vending that allow entrance is `r sprintf("%.2f", prop_no_vending_entry)`.  
+There are `r nrow(subway_stations_A)` distinct stations that serve the A train.  
+There are `r nrow(subway_stations_A_ada)` ADA compliant stations that serve the A train.  
+
+**Problem 2**  
+
+
+```{r Q2_data}
+
+# This problem uses the Mr. Trash Wheel dataset, available as an Excel file on the course website.
+# 
+# Read and clean the Mr. Trash Wheel sheet:
+
+
+# 1 specify the sheet in the Excel file and to omit non-data entries (rows with notes / figures; columns containing notes) using arguments in read_excel
+# 2 use reasonable variable names
+# 3 omit rows that do not include dumpster-specific data
+# 4 round the number of sports balls to the nearest integer and converts the result to an integer variable (using as.integer)
+# 5 Use a similar process to import, clean, and organize the data for Professor Trash Wheel and Gwynnda, and combine this with the Mr. Trash Wheel dataset to produce a single tidy dataset. To keep track of which Trash Wheel is which, you may need to add an additional variable to both datasets before combining.
+
+mr_trash_wheel <- read_excel(
+    path = "data/202409 Trash Wheel Collection Data.xlsx",
+    sheet = "Mr. Trash Wheel",
+    skip = 1) |> 
+  janitor::clean_names() |> 
+  filter(!is.na(dumpster)) |> 
+  select(where(function(x) any(!is.na(x))))|> 
+  mutate(
+    sports_balls = as.integer(round(sports_balls))
+  ) |> mutate(trash_wheel = "Mr. Trash") |>
+  mutate(year = as.numeric(year))
+
+
+prof_trash_wheel <- read_excel(
+    path = "data/202409 Trash Wheel Collection Data.xlsx",
+    sheet = "Professor Trash Wheel",
+    skip = 1) |>
+  janitor::clean_names() |>
+  filter(!is.na(dumpster)) |>
+  mutate(trash_wheel = "Professor")
+
+gwynnda <- read_excel(
+    path = "data/202409 Trash Wheel Collection Data.xlsx",
+    sheet = "Gwynnda Trash Wheel",
+    skip = 1) |>
+  janitor::clean_names() |>
+  filter(!is.na(dumpster)) |>
+  mutate(trash_wheel = "Gwynnda")
+
+trash_wheels <- bind_rows(mr_trash_wheel, prof_trash_wheel, gwynnda)
+
+# Write a paragraph about these data; you are encouraged to use inline R. Be sure to note the number of observations in the resulting dataset, and give examples of key variables. For available data, what was the total weight of trash collected by Professor Trash Wheel? What was the total number of cigarette butts collected by Gwynnda in June of 2022?
+
+
+```
+The trash wheel dataset, consisting data from Mr. Trash, Professor, and Gwynnda wheels, contains `r nrow(trash_wheels)` observations and `r ncol(trash_wheels)` variables. The key variables include `year`, `month`, `dumpster`, trash weight(`weight_tons`), trash volume (`volume_cubic_yards`), `plastic_bottles`, `cigarette_butts`, and `trash_wheel`. The total weight of trash collected by Professor Trash Wheel is `r trash_wheels |> filter(trash_wheel == "Professor")|>pull(weight_tons)|>sum(na.rm = T)` tons. The total number of cigarette butts collected by Gwynnda in June of 2022 is `r sum(trash_wheels |> filter(trash_wheel == "Gwynnda", month == "June", year == 2022)|> pull(cigarette_butts))`.  
+
+
+**Problem 3**
+
+```{r Q3_data}
+# This problem uses data on elements of the Great British Bake Off. The show has been running for 10 seasons; in each episode, contestants compete in signature challenges, technical challenges, and a showstopper. At the end of an episode the winner is crowned “Star Baker” (and winner in the last episode of a season), and a loser is eliminated.
+# Information about individual bakers, their bakes, and their performance is included in bakers.csv, bakes.csv, and results.csv. 
+
+
+# In the first part of this problem, your goal is to create a single, well-organized dataset with all the information contained in these data files. To that end: import, clean, tidy, and otherwise wrangle each of these datasets; check for completeness and correctness across datasets (e.g. by viewing individual datasets and using anti_join); merge to create a single, final dataset; and organize this so that variables and observations are in meaningful orders. Export the result as a CSV in the directory containing the original datasets.
+
+bakers <- read_csv("data/gbb_datasets/bakers.csv") |> 
+  janitor::clean_names() |> 
+  separate(baker_name, into = c("baker", "last_name"), sep = " ")
+
+bakes <- read_csv("data/gbb_datasets/bakes.csv") |>
+  janitor::clean_names() |>
+  mutate(baker = ifelse(baker == '"Jo"', "Johanne", baker))
+
+results <- read_csv("data/gbb_datasets/results.csv",
+                    skip = 2) |>
+  janitor::clean_names()
+
+# Merge the datasets
+
+gbb_data <- results |> 
+  left_join(bakes, by = c("baker", "series", "episode")) |> 
+  left_join(bakers, by = c("baker", "series"))
+
+
+# Export the result as a CSV in the directory containing the original datasets.
+write_csv(gbb_data, "data/gbb_datasets/gbb_data.csv")
+
+
+#Describe your data cleaning process, including any questions you have or choices you made. Briefly discuss the final dataset.
+
+
+
+
+```  
+
+
+The data cleaning process involved reading the data, cleaning the column names, and checking the data structure. The `bakers` dataset was separated into first and last names. The `bakes` and `results` datasets were read and cleaned. The `results` dataset was joined with the `bakes` dataset and the `bakers` dataset to create a single dataset `gbb_data`. The final dataset contains information about individual bakers, their bakes, and their performance. The dataset is tidy, with as completed information as possible.  Discussing from the structure of the relational database, the parent table is `baker` and the child tables are `bakes` and `results`. The `baker` table is connected to the `bakes` and `results` tables through the pirmary key, `baker` variable. The `bakes` and `results` tables are connected through the composite keys, `bake`,  `series` and `episode` variables.  
+
+Along the cleaning, I notice a baker named "Jo" in season 2, episode 3, who has no corresponding record in the `bakers` dataset, and the `bakers` table suggest there is only one baker named "Johanne" in this season. I googled it, and I found that "Jo" is a nickname for "Johanne", Johanne Wheatley. So I decided to merge the two names into one by replace "Jo" in `bakes` with her real name "Johanne" to match with other datasets.  
+
+The final data, `gbb_data`, contains `r nrow(gbb_data)` observations and `r ncol(gbb_data)` variables. The key variables include  `series`, `episode`, `baker`, `technical`, `result`, `signature_bake`, `showstopper`, `last_name`, `baker_age`, `baker_occupation`, and `hometown`. The dataset includes the information of bakers and their performance in the `r gbb_data|>pull(series)|>unique()|> length() ` series of Great British Bake Off.  
+
+
+
+```{r Q3_table}
+
+#Create a reader-friendly table showing the star baker or winner of each episode in Seasons 5 through 10. Comment on this table – were there any predictable overall winners? Any surprises?
+gbb_data |>
+  filter(series >= 5) |>
+  filter(result == "STAR BAKER" | result == "WINNER") |>
+  select(series, episode, baker, result) |>
+  pivot_wider(names_from = result, values_from = baker) |>
+  select(series, episode, `STAR BAKER`, WINNER) |>
+  arrange(series, episode)
+
+
+```
+
+The table above shows the star baker or winner of each episode in Seasons 5 through 10. There were no predictable overall winners, and there were some surprises that the final winner might fail to win more "Star Baker" titles than the peers in the season.
+
+```{r Q3_viewer}
+# Import, clean, tidy, and organize the viewership data in viewers.csv. Show the first 10 rows of this dataset. 
+viewers <- read_csv("data/gbb_datasets/viewers.csv") |>
+  janitor::clean_names()
+viewers |>
+  head(10)
+
+# What was the average viewership in Season 1? In Season 5?
+
+```
+The average viewership in Season 1 was `r viewers |> pull(series_1) |> mean(na.rm = TRUE)`. The average viewership in Season 5 was `r viewers |> pull(series_5) |> mean(na.rm = TRUE)`.   
+
